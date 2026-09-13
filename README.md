@@ -29,7 +29,7 @@ A WYSIWYG page builder for marketing pages, built with **React**, **Next.js (App
 | Framework | Next.js 16 (App Router, Turbopack) | Route handlers double as the API layer; React Server Components give real SSR for the public page without a separate backend. |
 | Language | TypeScript | Blocks are a tagged union (`Block["type"]`); the compiler enforces that every block renderer and editor field stays in sync with the schema. |
 | UI | React 19 + Tailwind CSS v4 | Utility classes keep the editor/preview styling colocated with markup; no separate design-token build step needed for this scope. |
-| AI | `@anthropic-ai/sdk` (Claude) | Suggestion generation is isolated behind one function (`generateSuggestions`) so the model/provider can change without touching UI or API code. |
+| AI | Hugging Face Inference API (free tier, default model `HuggingFaceH4/zephyr-7b-beta`) | Suggestion generation is isolated behind one function (`generateSuggestions`) so the model/provider can change without touching UI or API code. |
 | Persistence | JSON file (`data/pages.json`) via Node `fs` | Deliberately minimal — no database to provision for a project whose focus is the editor and AI-assist UX, not storage infrastructure. Swappable behind `src/lib/store.ts`. |
 
 ### Architecture
@@ -88,8 +88,8 @@ interface Page {
 
 **Getting an AI suggestion**
 1. Author clicks "AI Suggest" on a block → client posts `{ blockType, currentText, pageTitle }` to `/api/ai/suggest`.
-2. `generateSuggestions()` (`src/lib/ai.ts`) calls the Anthropic Messages API with a prompt asking for 3 JSON-encoded copy variants in the same voice/length as the current text.
-3. If `ANTHROPIC_API_KEY` is unset, or the API call/parse fails for any reason, the function falls back to static per-block-type sample suggestions — the authoring flow never breaks due to missing credentials or a model hiccup.
+2. `generateSuggestions()` (`src/lib/ai.ts`) calls the free Hugging Face Inference API with a prompt asking for 3 newline-separated copy variants in the same voice/length as the current text.
+3. If `HUGGINGFACE_API_KEY` is unset, the request fails, or the response can't be parsed into suggestions, the function falls back to static per-block-type sample suggestions — the authoring flow never breaks due to missing credentials or a model hiccup.
 4. The author clicks a suggestion to apply it directly to the block's editable field; nothing is persisted until they hit Save/Publish.
 
 ### Project structure
@@ -138,12 +138,14 @@ Open [http://localhost:3000](http://localhost:3000) to see the dashboard, create
 
 ### AI suggestions
 
-Copy `.env.local.example` to `.env.local` and set `ANTHROPIC_API_KEY` to use live LLM-generated suggestions:
+Copy `.env.local.example` to `.env.local` and set `HUGGINGFACE_API_KEY` to use live LLM-generated suggestions:
 
 ```bash
 cp .env.local.example .env.local
-# then edit .env.local and set ANTHROPIC_API_KEY=sk-ant-...
+# then edit .env.local and set HUGGINGFACE_API_KEY=hf_...
 ```
+
+Get a free token from [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) (read access is enough). Optionally set `HUGGINGFACE_MODEL` to use a different hosted model instead of the default `HuggingFaceH4/zephyr-7b-beta`.
 
 Without a key, the app falls back to built-in sample suggestions so the authoring flow still works end-to-end.
 
